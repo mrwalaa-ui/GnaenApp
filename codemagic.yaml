@@ -1,5 +1,5 @@
 workflows:
-  ios-unsigned:
+  ios:
     name: GnaenApp Build
     instance_type: mac_mini_m2
     max_build_duration: 60
@@ -7,26 +7,20 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Install Pods
+      - name: Fix Arabic code
         script: |
-          if [ -f "جنائن/Podfile" ]; then
-            cd "جنائن"
-            pod install --repo-update
-          elif [ -f "Podfile" ]; then
-            pod install --repo-update
-          fi
-      - name: Build App
+          find . -name "*.swift" -type f -exec sed -i '' 's/جنائن\./self./g' {} \;
+          find . -name "*.swift" -type f -exec sed -i '' 's/جنائن/self/g' {} \;
+      - name: Pods
+        script: |
+          if [ -f "جنائن/Podfile" ]; then cd جنائن && pod install --repo-update; else pod install --repo-update; fi
+      - name: Build
         script: |
           WS=$(find . -name "*.xcworkspace" | head -n 1)
-          echo "Workspace: $WS"
-          xcodebuild -workspace "$WS" -list
-          xcodebuild -workspace "$WS" -scheme "جنائن" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -derivedDataPath build/DerivedData build || xcodebuild -workspace "$WS" -scheme "GnaenApp" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -derivedDataPath build/DerivedData build
-      - name: Make IPA
+          xcodebuild -workspace "$WS" -scheme "جنائن" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO PRODUCT_NAME=GnaenApp PRODUCT_MODULE_NAME=GnaenApp -derivedDataPath build/DerivedData build
+      - name: IPA
         script: |
-          APP=$(find build/DerivedData -name "*.app" -type d | head -n 1)
-          mkdir -p build/Payload
-          cp -r "$APP" build/Payload/
-          cd build
-          zip -r GnaenApp-unsigned.ipa Payload
+          APP=$(find build -name "*.app" -type d | head -n 1)
+          mkdir -p build/Payload && rm -rf build/Payload/* && cp -r "$APP" build/Payload/ && cd build && zip -r GnaenApp-unsigned.ipa Payload
     artifacts:
       - build/*.ipa
