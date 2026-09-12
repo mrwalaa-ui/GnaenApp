@@ -11,13 +11,31 @@ workflows:
         script: |
           find . -name "*.swift" -type f -exec sed -i '' 's/جنائن\./self./g' {} \;
           find . -name "*.swift" -type f -exec sed -i '' 's/جنائن/self/g' {} \;
+          find . -path "*/xcshareddata/xcschemes/*.xcscheme" -exec sed -i '' 's/جنائن/GnaenApp/g' {} \;
       - name: Pods
         script: |
           if [ -f "جنائن/Podfile" ]; then cd جنائن && pod install --repo-update; else pod install --repo-update; fi
       - name: Build
         script: |
+          set -e
           WS=$(find . -name "*.xcworkspace" | head -n 1)
-          xcodebuild -workspace "$WS" -scheme "جنائن" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO PRODUCT_NAME=GnaenApp PRODUCT_MODULE_NAME=GnaenApp -derivedDataPath build/DerivedData build
+          PROJ=$(find . -maxdepth 3 -name "*.xcodeproj" | head -n 1)
+          echo "Workspace: $WS"
+          echo "Project: $PROJ"
+          echo "Listing schemes..."
+          if [ -n "$WS" ]; then
+            xcodebuild -workspace "$WS" -list || true
+            SCHEME=$(xcodebuild -workspace "$WS" -list | grep -A 20 "Schemes:" | tail -n +2 | sed 's/^[[:space:]]*//' | head -n 1 | tr -d '\r')
+          else
+            xcodebuild -project "$PROJ" -list || true
+            SCHEME=$(xcodebuild -project "$PROJ" -list | grep -A 20 "Schemes:" | tail -n +2 | sed 's/^[[:space:]]*//' | head -n 1 | tr -d '\r')
+          fi
+          echo "Using scheme: $SCHEME"
+          if [ -n "$WS" ]; then
+            xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -derivedDataPath build/DerivedData build
+          else
+            xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -derivedDataPath build/DerivedData build
+          fi
       - name: IPA
         script: |
           APP=$(find build -name "*.app" -type d | head -n 1)
