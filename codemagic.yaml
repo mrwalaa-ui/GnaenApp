@@ -11,7 +11,6 @@ workflows:
         script: |
           find . -name "*.swift" -type f -exec sed -i '' 's/جنائن\./self./g' {} \;
           find . -name "*.swift" -type f -exec sed -i '' 's/جنائن/self/g' {} \;
-          find . -path "*/xcshareddata/xcschemes/*.xcscheme" -exec sed -i '' 's/جنائن/GnaenApp/g' {} \;
       - name: Pods
         script: |
           if [ -f "جنائن/Podfile" ]; then cd جنائن && pod install --repo-update; else pod install --repo-update; fi
@@ -20,25 +19,22 @@ workflows:
           set -e
           WS=$(find . -name "*.xcworkspace" | head -n 1)
           PROJ=$(find . -maxdepth 3 -name "*.xcodeproj" | head -n 1)
-          echo "Workspace: $WS"
-          echo "Project: $PROJ"
-          echo "Listing schemes..."
           if [ -n "$WS" ]; then
-            xcodebuild -workspace "$WS" -list || true
             SCHEME=$(xcodebuild -workspace "$WS" -list | grep -A 20 "Schemes:" | tail -n +2 | sed 's/^[[:space:]]*//' | head -n 1 | tr -d '\r')
-          else
-            xcodebuild -project "$PROJ" -list || true
-            SCHEME=$(xcodebuild -project "$PROJ" -list | grep -A 20 "Schemes:" | tail -n +2 | sed 's/^[[:space:]]*//' | head -n 1 | tr -d '\r')
-          fi
-          echo "Using scheme: $SCHEME"
-          if [ -n "$WS" ]; then
             xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -derivedDataPath build/DerivedData build
           else
+            SCHEME=$(xcodebuild -project "$PROJ" -list | grep -A 20 "Schemes:" | tail -n +2 | sed 's/^[[:space:]]*//' | head -n 1 | tr -d '\r')
             xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -derivedDataPath build/DerivedData build
           fi
       - name: IPA
         script: |
-          APP=$(find build -name "*.app" -type d | head -n 1)
-          mkdir -p build/Payload && rm -rf build/Payload/* && cp -r "$APP" build/Payload/ && cd build && zip -r GnaenApp-unsigned.ipa Payload
+          set -x
+          find . -type d -name "*.app" | grep -v Pods | head -n 20
+          APP=$(find . -type d -name "*.app" | grep -v Pods | head -n 1)
+          echo "APP=$APP"
+          rm -rf build/Payload
+          mkdir -p build/Payload
+          cp -R "$APP" build/Payload/
+          cd build && zip -r GnaenApp-unsigned.ipa Payload && ls -lh *.ipa
     artifacts:
       - build/*.ipa
