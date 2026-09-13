@@ -1,4 +1,25 @@
-npm install
-npx expo prebuild --platform ios --clean
-cd ios && pod install
-xcode-project build-ipa --workspace ios/GnaenApp.xcworkspace --scheme GnaenApp
+workflows:
+  ios:
+    name: iOS Build
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+      cocoapods: default
+      node: 20
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci
+      - name: Expo prebuild
+        script: |
+          npx expo prebuild --platform ios --clean
+      - name: Install Pods
+        script: |
+          cd ios && pod install
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa --workspace ios/GnaenApp.xcworkspace --scheme GnaenApp
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
