@@ -10,12 +10,14 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.gnaen.app"
+        XCODE_WORKSPACE: "ios/جنالن.xcworkspace"
+        XCODE_SCHEME: "جنالن"
     scripts:
       - name: Install Pods
         script: |
           if [ -f "ios/Podfile" ]; then
             cd ios && pod install --repo-update || true
-          elif [ -f "Podfile" ]; then
+          else
             pod install --repo-update || true
           fi
       - name: Set up code signing
@@ -23,32 +25,14 @@ workflows:
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain initialize
           keychain add-certificates
-          xcode-project use-profiles
+          xcode-project use-profiles --team-id TU72MDZ27R
       - name: Build IPA
         script: |
           #!/usr/bin/env bash
           set -x
           cd ios 2>/dev/null || true
-          pwd
-          ls -la
-          xcodebuild -list || true
-          WS=$(ls -d *.xcworkspace 2>/dev/null | head -n 1)
-          PROJ=$(ls -d *.xcodeproj 2>/dev/null | head -n 1)
-          echo "WS=$WS PROJ=$PROJ"
-          # استخدم اول scheme يلقاه اذا الاسم العربي ما اشتغل
-          SCHEME=$(xcodebuild -list 2>/dev/null | grep -A 20 "Schemes:" | tail -n +2 | head -n 1 | xargs)
-          echo "Using scheme: $SCHEME"
-          if [ -z "$SCHEME" ]; then SCHEME="جنالن"; fi
-          if [ -n "$WS" ]; then
-            xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates
-          else
-            xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates
-          fi
-          if [ -f "../ExportOptions.plist" ]; then
-            xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ../build -exportOptionsPlist ../ExportOptions.plist
-          else
-            xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ExportOptions.plist
-          fi
+          xcodebuild -workspace جنالن.xcworkspace -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates DEVELOPMENT_TEAM=TU72MDZ27R CODE_SIGN_STYLE=AUTOMATIC
+          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ../build -exportOptionsPlist ../ExportOptions.plist || xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ExportOptions.plist
     artifacts:
       - build/*.ipa
       - ios/build/*.ipa
