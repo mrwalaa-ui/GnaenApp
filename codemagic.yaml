@@ -23,40 +23,28 @@ workflows:
       - name: Build IPA
         script: |
           #!/usr/bin/env bash
-          set -x
-          ls -la
-          WS=$(ls -d *.xcworkspace 2>/dev/null | head -n 1)
-          PROJ=$(ls -d *.xcodeproj 2>/dev/null | head -n 1)
-          echo "Found: WS=$WS PROJ=$PROJ"
-          SCHEME=$(xcodebuild -list -workspace "$WS" 2>/dev/null | grep -A 100 "Schemes:" | grep -v "Schemes:" | grep -v "^$" | head -n 1 | xargs)
-          if [ -z "$SCHEME" ]; then
-            SCHEME=$(xcodebuild -list -project "$PROJ" 2>/dev/null | grep -A 100 "Schemes:" | grep -v "Schemes:" | grep -v "^$" | head -n 1 | xargs)
-          fi
-          echo "Using Scheme: $SCHEME"
-
-          # اكتب ExportOptions.plist جديد وصحيح
+          set -ex
+          rm -f ./ExportOptions.plist /tmp/ExportOptions.plist
+          WS=$(ls -d *.xcworkspace | head -n 1)
+          SCHEME=$(xcodebuild -list -workspace "$WS" | grep -A 100 "Schemes:" | tail -n +2 | grep -v "^$" | head -n 1 | xargs)
+          echo "Scheme=$SCHEME"
+          
+          # plist جديد كلش بسيط بدون teamID
           cat > ./ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-              <key>method</key>
-              <string>app-store</string>
-              <key>teamID</key>
-              <string>TU72MDZ27R</string>
-              <key>signingStyle</key>
-              <string>automatic</string>
+            <key>method</key>
+            <string>app-store</string>
           </dict>
           </plist>
           EOF
           cat ./ExportOptions.plist
-
-          if [ -n "$WS" ]; then
-            xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates DEVELOPMENT_TEAM=TU72MDZ27R CODE_SIGN_STYLE=AUTOMATIC
-          else
-            xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates DEVELOPMENT_TEAM=TU72MDZ27R CODE_SIGN_STYLE=AUTOMATIC
-          fi
-
+          plutil -p ./ExportOptions.plist
+          
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS -allowProvisioningUpdates
+          
           xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ./ExportOptions.plist
       - build/*.ipa
     publishing:
