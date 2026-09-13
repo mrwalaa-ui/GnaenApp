@@ -13,7 +13,7 @@ workflows:
     scripts:
       - name: Install Pods
         script: |
-          cd ios 2>/dev/null || true
+          cd ios
           pod install --repo-update
           cd ..
       - name: Set up code signing
@@ -22,13 +22,31 @@ workflows:
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
-      - name: List Schemes
+      - name: Build IPA
         script: |
           #!/usr/bin/env bash
           set -ex
-          WS=$(find . -maxdepth 2 -name "*.xcworkspace" | head -n 1)
+          cd ios
+          WS=$(ls -d *.xcworkspace | head -n 1)
           echo "Workspace: $WS"
           xcodebuild -list -workspace "$WS"
+          # اسم السكيم هو نفس اسم الوركسبيس بدون الامتداد
+          SCHEME=$(basename "$WS" .xcworkspace)
+          echo "Using SCHEME=$SCHEME"
+          
+          cat > ../ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+          </dict>
+          </plist>
+          EOF
+          
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS -allowProvisioningUpdates
+          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ../build -exportOptionsPlist ../ExportOptions.plist
     artifacts:
       - build/*.ipa
       - /tmp/App.xcarchive
