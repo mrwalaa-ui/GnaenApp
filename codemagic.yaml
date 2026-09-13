@@ -1,24 +1,17 @@
 workflows:
-  ios-workflow:
-    name: GnaenApp iOS
-    max_build_duration: 60
+  ios:
+    name: iOS Build
     instance_type: mac_mini_m2
+    max_build_duration: 60
     environment:
-      vars:
-        XCODE_WORKSPACE: "ios/GnaenApp.xcworkspace"
       xcode: latest
       cocoapods: default
-    triggering:
-      events:
-        - push
     scripts:
-      - name: Install npm dependencies
+      - name: Install
         script: |
           npm install
-      - name: Install Pods
-        script: |
-          cd ios && pod install
-      - name: Set up code signing
+          cd ios && pod install || true
+      - name: Code Signing
         script: |
           keychain initialize
           app-store-connect fetch-signing-files com.gnaen.app --type IOS_DISTRIBUTION --create
@@ -26,10 +19,9 @@ workflows:
           xcode-project use-profiles
       - name: Build IPA
         script: |
-          xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "GnaenApp"
+          xcode-project build-ipa --workspace ios/GnaenApp.xcworkspace --scheme GnaenApp
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
