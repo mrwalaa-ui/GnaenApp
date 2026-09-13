@@ -26,10 +26,9 @@ workflows:
           set -ex
           rm -f ./ExportOptions.plist /tmp/ExportOptions.plist
           WS=$(ls -d *.xcworkspace | head -n 1)
-          SCHEME=$(xcodebuild -list -workspace "$WS" | grep -A 100 "Schemes:" | tail -n +2 | grep -v "^$" | head -n 1 | xargs)
-          echo "Scheme=$SCHEME"
+          SCHEME="Runner"
+          echo "Using WS=$WS SCHEME=$SCHEME"
           
-          # plist جديد كلش بسيط بدون teamID
           cat > ./ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -40,7 +39,6 @@ workflows:
           </dict>
           </plist>
           EOF
-          cat ./ExportOptions.plist
           plutil -p ./ExportOptions.plist
           
           xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS -allowProvisioningUpdates
