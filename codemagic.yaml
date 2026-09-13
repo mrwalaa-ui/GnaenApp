@@ -7,23 +7,19 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Install pods if needed
+            - name: Set up pods
         script: |
-          if [ -f "Podfile" ]; then
-            pod install
-          elif [ -f "App/Podfile" ]; then
-            cd App && pod install
-          else
-            echo "No Podfile found, skipping"
-          fi
-      - name: Build IPA
+          cd . && pod install || echo "No pods needed"
+            - name: Build IPA
         script: |
-          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release archive -archivePath /tmp/App.xcarchive CODE_SIGN_STYLE=AUTOMATIC || xcodebuild -project App.xcodeproj -scheme App -configuration Release archive -archivePath /tmp/App.xcarchive CODE_SIGN_STYLE=AUTOMATIC
-          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ExportOptions.plist
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release archive -archivePath build/App.xcarchive CODE_SIGN_STYLE=AUTOMATIC
+          xcodebuild -exportArchive -archivePath build/App.xcarchive -exportPath build/ -exportOptionsPlist ExportOptions.plist
     artifacts:
-      - build/*.ipa
+            - build/*.ipa
     publishing:
       app_store_connect:
         api_key: $APP_STORE_CONNECT_API_KEY
         key_id: $APP_STORE_CONNECT_KEY_ID
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: false
+        submit_to_app_store: true
