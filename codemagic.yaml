@@ -1,40 +1,35 @@
 workflows:
-  ios:
-    name: GnaenApp Build
-    instance_type: mac_mini_m2
+  ios-workflow:
+    name: GnaenApp iOS
     max_build_duration: 60
+    instance_type: mac_mini_m2
     environment:
+      vars:
+        XCODE_WORKSPACE: "ios/GnaenApp.xcworkspace"
       xcode: latest
       cocoapods: default
+    triggering:
+      events:
+        - push
     scripts:
-      - name: Fix Arabic code
+      - name: Install npm dependencies
         script: |
-          find . -name "*.swift" -type f -exec sed -i '' 's/جنائن\./self./g' {} \;
-          find . -name "*.swift" -type f -exec sed -i '' 's/جنائن/self/g' {} \;
-      - name: Pods
+          npm install
+      - name: Install Pods
         script: |
-          if [ -f "جنائن/Podfile" ]; then cd جنائن && pod install --repo-update; else pod install --repo-update; fi
-      - name: Build
+          cd ios && pod install
+      - name: Set up code signing
         script: |
-          set -e
-          WS=$(find . -name "*.xcworkspace" | head -n 1)
-          PROJ=$(find . -maxdepth 3 -name "*.xcodeproj" | head -n 1)
-          if [ -n "$WS" ]; then
-            SCHEME=$(xcodebuild -workspace "$WS" -list | grep -A 20 "Schemes:" | tail -n +2 | sed 's/^[[:space:]]*//' | head -n 1 | tr -d '\r')
-            xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -derivedDataPath build/DerivedData build
-          else
-            SCHEME=$(xcodebuild -project "$PROJ" -list | grep -A 20 "Schemes:" | tail -n +2 | sed 's/^[[:space:]]*//' | head -n 1 | tr -d '\r')
-            xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO -derivedDataPath build/DerivedData build
-          fi
-      - name: IPA
+          keychain initialize
+          app-store-connect fetch-signing-files com.gnaen.app --type IOS_DISTRIBUTION --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build IPA
         script: |
-          set -x
-          find . -type d -name "*.app" | grep -v Pods | head -n 20
-          APP=$(find . -type d -name "*.app" | grep -v Pods | head -n 1)
-          echo "APP=$APP"
-          rm -rf build/Payload
-          mkdir -p build/Payload
-          cp -R "$APP" build/Payload/
-          cd build && zip -r GnaenApp-unsigned.ipa Payload && ls -lh *.ipa
+          xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "GnaenApp"
     artifacts:
-      - build/*.ipa
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
