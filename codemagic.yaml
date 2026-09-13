@@ -8,12 +8,11 @@ workflows:
       cocoapods: default
       node: 20
     scripts:
-      - name: Install dependencies
-        script: |
-          npm ci
-      - name: Expo prebuild
-        script: |
-          npx expo prebuild --platform ios --clean
+- name: Install dependencies
+  script: |
+    node -v
+    npm -v
+    npm install --legacy-peer-deps --verbose
       - name: Install Pods
         script: |
           cd ios && pod install
