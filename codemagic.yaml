@@ -1,20 +1,34 @@
 workflows:
   ios-workflow:
-    name: iOS IPA
+    name: iOS IPA Signed
     instance_type: mac_mini_m2
     max_build_duration: 60
+    integrations:
+      app_store_connect: GNAEN
     environment:
       xcode: latest
       cocoapods: default
+      vars:
+        BUNDLE_ID: "com.gnaen.app"
+        APPLE_TEAM_ID: "TU72MDZ27R"
     scripts:
       - name: Install Pods
         script: |
           pod install --repo-update || true
+      - name: Set up code signing
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain initialize
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Build IPA
         script: |
-          #!/usr/bin/env bash
-          set -e
-          xcodebuild -workspace جنالن.xcworkspace -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive CODE_SIGN_STYLE=AUTOMATIC || xcodebuild -project جنالن.xcodeproj -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive CODE_SIGN_STYLE=AUTOMATIC
+          xcodebuild -workspace جنالن.xcworkspace -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates
           xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ExportOptions.plist
     artifacts:
       - build/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submission_type: ios
