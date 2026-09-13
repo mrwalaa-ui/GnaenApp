@@ -13,7 +13,9 @@ workflows:
     scripts:
       - name: Install Pods
         script: |
+          if [ -d "ios" ]; then cd ios; fi
           pod install --repo-update || true
+          cd -
       - name: Set up code signing
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
@@ -22,10 +24,25 @@ workflows:
           xcode-project use-profiles
       - name: Build IPA
         script: |
-          xcodebuild -workspace جنالن.xcworkspace -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates
-          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ExportOptions.plist
-    artifacts:
-      - build/*.ipa
-    publishing:
-      app_store_connect:
-        auth: integration
+          #!/usr/bin/env bash
+          set -x
+          ls -la
+          if [ -d "ios" ]; then
+            cd ios
+          fi
+          ls -la
+          WS=$(ls -d *.xcworkspace 2>/dev/null | head -n 1)
+          PROJ=$(ls -d *.xcodeproj 2>/dev/null | head -n 1)
+          echo "Workspace: $WS"
+          echo "Project: $PROJ"
+          
+          if [ -n "$WS" ]; then
+            xcodebuild -workspace "$WS" -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates
+          else
+            xcodebuild -project "$PROJ" -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates
+          fi
+          
+          if [ -f "../ExportOptions.plist" ]; then
+            xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ../build -exportOptionsPlist ../ExportOptions.plist
+          else
+            xcodebuild -export
