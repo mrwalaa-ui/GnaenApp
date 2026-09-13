@@ -13,11 +13,7 @@ workflows:
     scripts:
       - name: Install Pods
         script: |
-          if [ -f "ios/Podfile" ]; then
-            cd ios && pod install --repo-update || true
-          elif [ -f "Podfile" ]; then
-            pod install --repo-update || true
-          fi
+          pod install --repo-update || true
       - name: Set up code signing
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
@@ -28,14 +24,29 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -x
-          cd ios 2>/dev/null || true
           ls -la
-          xcodebuild -workspace جنالن.xcworkspace -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates DEVELOPMENT_TEAM=TU72MDZ27R CODE_SIGN_STYLE=AUTOMATIC
-          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ../build -exportOptionsPlist ../ExportOptions.plist || xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ExportOptions.plist
+          # لا تكتب اسم عربي - خليه يدور تلقائيا
+          WS=$(ls -d *.xcworkspace 2>/dev/null | head -n 1)
+          PROJ=$(ls -d *.xcodeproj 2>/dev/null | head -n 1)
+          echo "Found: WS=$WS PROJ=$PROJ"
+          # جيب اول Scheme يلقاه
+          SCHEME=$(xcodebuild -list -workspace "$WS" 2>/dev/null | grep -A 100 "Schemes:" | grep -v "Schemes:" | grep -v "^$" | head -n 1 | xargs)
+          if [ -z "$SCHEME" ]; then
+            SCHEME=$(xcodebuild -list -project "$PROJ" 2>/dev/null | grep -A 100 "Schemes:" | grep -v "Schemes:" | grep -v "^$" | head -n 1 | xargs)
+          fi
+          echo "Using Scheme: $SCHEME"
+          
+          # بناء الارشيف
+          if [ -n "$WS" ]; then
+            xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates DEVELOPMENT_TEAM=TU72MDZ27R CODE_SIGN_STYLE=AUTOMATIC
+          else
+            xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates DEVELOPMENT_TEAM=TU72MDZ27R CODE_SIGN_STYLE=AUTOMATIC
+          fi
+          
+          # تصدير IPA
+          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ./ExportOptions.plist
     artifacts:
       - build/*.ipa
-      - ../build/*.ipa
-      - ios/build/*.ipa
     publishing:
       app_store_connect:
         auth: integration
