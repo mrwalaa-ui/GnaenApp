@@ -13,9 +13,7 @@ workflows:
     scripts:
       - name: Install Pods
         script: |
-          cd ios
           pod install --repo-update
-          cd ..
       - name: Set up code signing
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
@@ -26,15 +24,12 @@ workflows:
         script: |
           #!/usr/bin/env bash
           set -ex
-          cd ios
           WS=$(ls -d *.xcworkspace | head -n 1)
-          echo "Workspace: $WS"
-          xcodebuild -list -workspace "$WS"
-          # اسم السكيم هو نفس اسم الوركسبيس بدون الامتداد
           SCHEME=$(basename "$WS" .xcworkspace)
-          echo "Using SCHEME=$SCHEME"
+          echo "WS=$WS SCHEME=$SCHEME"
+          xcodebuild -list -workspace "$WS"
           
-          cat > ../ExportOptions.plist <<EOF
+          cat > ./ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -46,7 +41,7 @@ workflows:
           EOF
           
           xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS -allowProvisioningUpdates
-          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ../build -exportOptionsPlist ../ExportOptions.plist
+          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ./ExportOptions.plist
     artifacts:
       - build/*.ipa
       - /tmp/App.xcarchive
