@@ -11,17 +11,9 @@ workflows:
         script: |
           npm install
           cd ios && pod install || true
-      - name: Code Signing
-        script: |
-          keychain initialize
-          app-store-connect fetch-signing-files com.gnaen.app --type IOS_DISTRIBUTION --create
-          keychain add-certificates
-          xcode-project use-profiles
       - name: Build IPA
         script: |
           xcode-project build-ipa --workspace ios/GnaenApp.xcworkspace --scheme GnaenApp
     artifacts:
       - build/ios/ipa/*.ipa
-    publishing:
-      app_store_connect:
-        auth: integration
+      - /tmp/xcodebuild_logs/*.log
