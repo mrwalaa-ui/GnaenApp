@@ -2,19 +2,23 @@ workflows:
   ios:
     name: iOS Build
     instance_type: mac_mini_m2
+    max_build_duration: 60
     environment:
       xcode: latest
       cocoapods: default
       node: 20
     scripts:
-      - name: Install
+      - name: Install dependencies
         script: |
           npm install --legacy-peer-deps
-      - name: Pods
+      - name: Generate iOS folder
+        script: |
+          npx expo prebuild --platform ios --clean
+      - name: Install Pods
         script: |
           cd ios && pod install
       - name: Build IPA
         script: |
-          xcode-project build-ipa --workspace "ios/جنائن.xcworkspace" --scheme "جنائن"
+          xcode-project build-ipa --workspace ios/*.xcworkspace --scheme جنائن
     artifacts:
       - build/ios/ipa/*.ipa
