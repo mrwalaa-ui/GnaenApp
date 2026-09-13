@@ -1,24 +1,25 @@
 workflows:
-  ios:
-    name: iOS Build
+  ios-pwa-workflow:
+    name: iOS PWA Build
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       xcode: latest
       cocoapods: default
-      node: 20
     scripts:
-      - name: Install dependencies
+            - name: Set up pods
         script: |
-          npm install --legacy-peer-deps
-      - name: Generate iOS folder
+          cd . && pod install || echo "No pods needed"
+            - name: Build IPA
         script: |
-          npx expo prebuild --platform ios --clean
-      - name: Install Pods
-        script: |
-          cd ios && pod install
-      - name: Build IPA
-        script: |
-          xcode-project build-ipa --workspace ios/*.xcworkspace --scheme جنائن
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release archive -archivePath build/App.xcarchive CODE_SIGN_STYLE=AUTOMATIC
+          xcodebuild -exportArchive -archivePath build/App.xcarchive -exportPath build/ -exportOptionsPlist ExportOptions.plist
     artifacts:
-      - build/ios/ipa/*.ipa
+            - build/*.ipa
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_API_KEY
+        key_id: $APP_STORE_CONNECT_KEY_ID
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: false
+        submit_to_app_store: true
