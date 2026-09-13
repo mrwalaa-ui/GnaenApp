@@ -6,14 +6,16 @@ workflows:
     environment:
       xcode: latest
       cocoapods: default
-    scripts:
-      - name: Install
-        script: |
-          npm install
-          cd ios && pod install || true
-      - name: Build IPA
-        script: |
-          xcode-project build-ipa --workspace ios/GnaenApp.xcworkspace --scheme GnaenApp
-    artifacts:
-      - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
+scripts:
+  - name: Install
+    script: |
+      npm install
+  - name: Prebuild iOS
+    script: |
+      npx expo prebuild --platform ios --clean
+      cd ios && pod install
+  - name: Build IPA
+    script: |
+      xcode-project build-ipa --workspace ios/GnaenApp.xcworkspace --scheme GnaenApp
+artifacts:
+  - build/ios/ipa/*.ipa
