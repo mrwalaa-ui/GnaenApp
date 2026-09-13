@@ -10,14 +10,12 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.gnaen.app"
-        XCODE_WORKSPACE: "ios/جنالن.xcworkspace"
-        XCODE_SCHEME: "جنالن"
     scripts:
       - name: Install Pods
         script: |
           if [ -f "ios/Podfile" ]; then
             cd ios && pod install --repo-update || true
-          else
+          elif [ -f "Podfile" ]; then
             pod install --repo-update || true
           fi
       - name: Set up code signing
@@ -25,18 +23,19 @@ workflows:
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain initialize
           keychain add-certificates
-          xcode-project use-profiles --team-id TU72MDZ27R
+          xcode-project use-profiles
       - name: Build IPA
         script: |
           #!/usr/bin/env bash
           set -x
           cd ios 2>/dev/null || true
+          ls -la
           xcodebuild -workspace جنالن.xcworkspace -scheme جنالن -configuration Release archive -archivePath /tmp/App.xcarchive -allowProvisioningUpdates DEVELOPMENT_TEAM=TU72MDZ27R CODE_SIGN_STYLE=AUTOMATIC
           xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ../build -exportOptionsPlist ../ExportOptions.plist || xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ExportOptions.plist
     artifacts:
       - build/*.ipa
-      - ios/build/*.ipa
       - ../build/*.ipa
+      - ios/build/*.ipa
     publishing:
       app_store_connect:
         auth: integration
