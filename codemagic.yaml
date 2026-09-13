@@ -13,9 +13,14 @@ workflows:
     scripts:
       - name: Install Pods
         script: |
-          if [ -d "ios" ]; then cd ios; fi
-          pod install --repo-update || true
-          cd -
+          if [ -f "ios/Podfile" ]; then
+            cd ios
+            pod install --repo-update || true
+          elif [ -f "Podfile" ]; then
+            pod install --repo-update || true
+          else
+            echo "No Podfile found, skipping"
+          fi
       - name: Set up code signing
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
