@@ -13,6 +13,7 @@ workflows:
       - name: Setup signing
         script: |
           keychain initialize
+          app-store-connect certificates create --type IOS_DISTRIBUTION --save
           app-store-connect fetch-signing-files "com.gnaen.app" --type IOS_APP_STORE --create
           keychain add-certificates
       - name: Build IPA
