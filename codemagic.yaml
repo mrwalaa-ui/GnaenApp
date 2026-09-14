@@ -10,9 +10,15 @@ workflows:
     scripts:
       - name: Pods
         script: pod install --repo-update
-      - name: Auto Signing
+      - name: Force create Distribution cert
         script: |
           keychain initialize
+          # هذا ينشئ شهادة Distribution جديدة ومعاها الـ private key
+          app-store-connect certificates generate --type IOS_DISTRIBUTION --save --create -v || true
+          app-store-connect certificates generate --type DISTRIBUTION --save --create -v || true
+          ls -la $HOME/Library/MobileDevice/Certificates/ || true
+      - name: Fetch profiles
+        script: |
           app-store-connect fetch-signing-files "com.gnaen.app" --type IOS_APP_STORE --create -v
           keychain add-certificates
       - name: Build IPA
