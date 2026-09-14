@@ -7,17 +7,14 @@ workflows:
     environment:
       xcode: latest
       cocoapods: default
-      vars:
-        BUNDLE_ID: "com.gnaen.app"
     scripts:
       - name: Pods
         script: pod install --repo-update
       - name: Setup signing
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "com.gnaen.app" --type IOS_APP_STORE --create -v
           keychain add-certificates
-          xcode-project use-profiles
       - name: Build IPA
         script: xcode-project build-ipa --workspace "جنائن.xcworkspace" --scheme "جنائن"
     artifacts:
@@ -27,5 +24,3 @@ workflows:
         auth: integration
         api_key: gnaen
         submit_to_testflight: true
-        beta_groups:
-          - Beta
