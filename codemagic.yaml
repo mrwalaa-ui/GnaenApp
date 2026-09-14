@@ -2,7 +2,6 @@ workflows:
   ios-workflow:
     name: iOS
     instance_type: mac_mini_m2
-    max_build_duration: 60
     integrations:
       app_store_connect: gnaen
     environment:
@@ -13,9 +12,11 @@ workflows:
     scripts:
       - name: Install Pods
         script: pod install --repo-update
-      - name: Signing
+      - name: Create & Use Profiles
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          echo "=== Profiles fetched ==="
+          ls -lh ~/Library/MobileDevice/Provisioning\ Profiles/
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
@@ -23,10 +24,11 @@ workflows:
         script: |
           WS=$(ls -d *.xcworkspace | head -n 1)
           SCHEME=$(basename "$WS" .xcworkspace)
-          PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
-          TEAM_ID=$(security cms -D -i "$PROFILE" | plutil -extract TeamIdentifier.0 xml1 -o - - | grep -o "<string>.*</string>" | sed -E 's/<\/?string>//g')
-          echo "TEAM_ID is $TEAM_ID"
-          
+          PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
+          echo "Using Profile: $PROFILE_NAME"
+          echo "Team ID: $TEAM_ID"
           cat > /tmp/ExportOptions.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -34,16 +36,15 @@ workflows:
           <dict>
             <key>method</key><string>app-store</string>
             <key>teamID</key><string>$TEAM_ID</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$BUNDLE_ID</key><string>$PROFILE_NAME</string>
+            </dict>
           </dict>
           </plist>
           EOF
-          
-          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS DEVELOPMENT_TEAM=$TEAM_ID CODE_SIGN_STYLE=Manual
-          
+          cat /tmp/ExportOptions.plist
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS DEVELOPMENT_TEAM=$TEAM_ID CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
           xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist /tmp/ExportOptions.plist
     artifacts:
       - build/*.ipa
-    publishing:
-      app_store_connect:
-        auth: integration
-        submit_to_testflight: true
