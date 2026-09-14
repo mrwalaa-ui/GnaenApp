@@ -10,37 +10,61 @@ workflows:
     scripts:
       - name: Pods
         script: pod install --repo-update
-      - name: Strip all entitlements
-        script: |
-          python3 << 'PY'
-          import pathlib, re, os
-          # 1. خلي كل ملفات entitlements فارغة
-          for f in pathlib.Path(".").rglob("*.entitlements"):
-              print(f"Emptying {f}")
-              f.write_text('''<?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict></dict></plist>''')
-          # 2. عدل project.pbxproj
-          pbx = pathlib.Path("جنائن.xcodeproj/project.pbxproj")
-          if pbx.exists():
-              text = pbx.read_text()
-              # امسح CODE_SIGN_ENTITLEMENTS
-              text = re.sub(r'CODE_SIGN_ENTITLEMENTS\s*=\s*[^;]+;', 'CODE_SIGN_ENTITLEMENTS = "";', text)
-              # طفي كل SystemCapabilities
-              text = re.sub(r'SystemCapabilities\s*=\s*\{[^}]*\}', 'SystemCapabilities = {\n\t\t\t\tcom.apple.Push = {\n\t\t\t\t\tenabled = 0;\n\t\t\t\t};\n\t\t\t\tcom.apple.AssociatedDomains = {\n\t\t\t\t\tenabled = 0;\n\t\t\t\t};\n\t\t\t};', text, flags=re.DOTALL)
-              # تأكيد ثاني
-              text = text.replace("enabled = 1;", "enabled = 0;")
-              pbx.write_text(text)
-              print("Patched pbxproj to remove entitlements")
-          PY
-      - name: Setup signing
+      - name: Setup certs only
         script: |
           keychain initialize
           app-store-connect fetch-signing-files "com.gnaen.app" --type IOS_APP_STORE --create
           keychain add-certificates
-          xcode-project use-profiles
-      - name: Build IPA
-        script: xcode-project build-ipa --workspace "جنائن.xcworkspace" --scheme "جنائن"
+          # طلع الـ Team ID من البروفايل
+          PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
+          security cms -D -i "$PROFILE" > /tmp/profile.plist
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /tmp/profile.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /tmp/profile.plist)
+          echo "TEAM_ID=$TEAM_ID" >> $CM_ENV
+          echo "Found Team ID: $TEAM_ID"
+      - name: Strip capabilities
+        script: |
+          python3 << 'PY'
+          import pathlib, re
+          for f in pathlib.Path(".").rglob("*.entitlements"):
+              f.write_text('<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict></dict></plist>')
+          pbx = pathlib.Path("جنائن.xcodeproj/project.pbxproj")
+          text = pbx.read_text(encoding='utf-8')
+          text = re.sub(r'CODE_SIGN_ENTITLEMENTS\s*=\s*[^;]+;', '', text)
+          text = text.replace("enabled = 1;", "enabled = 0;")
+          pbx.write_text(text, encoding='utf-8')
+          PY
+      - name: Archive with Automatic Signing
+        script: |
+          mkdir -p build/ios/xcarchive
+          xcodebuild -workspace "جنائن.xcworkspace" \
+            -scheme "جنائن" \
+            -configuration Release \
+            -archivePath build/ios/xcarchive/جنائن.xcarchive \
+            -destination "generic/platform=iOS" \
+            archive \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=$TEAM_ID \
+            CODE_SIGN_ALLOW_LEGACY_KEYCHAIN=YES \
+            -allowProvisioningUpdates
+
+      - name: Export IPA
+        script: |
+          cat > /tmp/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/ios/xcarchive/جنائن.xcarchive \
+            -exportPath build/ios/ipa \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -allowProvisioningUpdates
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
