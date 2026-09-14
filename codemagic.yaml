@@ -10,6 +10,15 @@ workflows:
     scripts:
       - name: Pods
         script: pod install --repo-update
+      - name: Fix capabilities
+        script: |
+          echo "Cleaning entitlements..."
+          # امسح ملفات entitlements كلها حتى لا يطلب Associated Domains و Push
+          find. -name "*.entitlements" -delete
+          # امسح المرجع من project.pbxproj
+          sed -i '' 's/CODE_SIGN_ENTITLEMENTS.*//g' "جنائن.xcodeproj/project.pbxproj" || true
+          sed -i '' '/com.apple.developer.associated-domains/d' "جنائن.xcodeproj/project.pbxproj" || true
+          sed -i '' '/SystemCapabilities/d' "جنائن.xcodeproj/project.pbxproj" || true
       - name: Setup signing
         script: |
           keychain initialize
