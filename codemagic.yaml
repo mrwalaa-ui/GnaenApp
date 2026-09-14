@@ -1,8 +1,7 @@
 workflows:
   ios-workflow:
-    name: iOS IPA Signed
+    name: iOS
     instance_type: mac_mini_m2
-    max_build_duration: 60
     integrations:
       app_store_connect: gnaen
     environment:
@@ -12,46 +11,16 @@ workflows:
         BUNDLE_ID: "com.gnaen.app"
     scripts:
       - name: Install Pods
-        script: |
-          pod install --repo-update
-      - name: Set up code signing
+        script: pod install --repo-update
+      - name: Signing
         script: |
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain initialize
           keychain add-certificates
           xcode-project use-profiles
-          # اطبع البروفايل حتى نتاكد
-          ls ~/Library/MobileDevice/Provisioning\ Profiles/
       - name: Build IPA
         script: |
-          #!/usr/bin/env bash
-          set -ex
-          WS=$(ls -d *.xcworkspace | head -n 1)
-          SCHEME=$(basename "$WS" .xcworkspace)
-          
-          # استخرج TEAM ID من البروفايل
-          PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
-          TEAM_ID=$(security cms -D -i "$PROFILE" | plutil -extract TeamIdentifier.0 xml1 -o - - | grep string | sed -E 's/.*<string>(.*)<\/string>.*/\1/')
-          echo "TEAM_ID=$TEAM_ID PROFILE=$PROFILE"
-          
-          cat > ./ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>$TEAM_ID</string>
-          </dict>
-          </plist>
-          EOF
-          
-          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS DEVELOPMENT_TEAM=$TEAM_ID CODE_SIGN_STYLE=Manual -allowProvisioningUpdates
-          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist ./ExportOptions.plist
+          xcodebuild -workspace *.xcworkspace -scheme جنائن -config Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS -allowProvisioningUpdates
+          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath build -exportOptionsPlist <(echo '{"method":"app-store"}' | plutil -convert xml1 -o - -)
     artifacts:
       - build/*.ipa
-      - /tmp/App.xcarchive
-    publishing:
-      app_store_connect:
-        auth: integration
