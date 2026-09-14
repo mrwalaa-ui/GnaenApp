@@ -10,7 +10,7 @@ workflows:
     scripts:
       - name: Pods
         script: pod install --repo-update
-      - name: Setup signing
+      - name: Auto Signing
         script: |
           keychain initialize
           app-store-connect fetch-signing-files "com.gnaen.app" --type IOS_APP_STORE --create -v
