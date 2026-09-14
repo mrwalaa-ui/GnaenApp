@@ -15,12 +15,32 @@ workflows:
           keychain initialize
           app-store-connect fetch-signing-files "com.gnaen.app" --type IOS_APP_STORE --create
           keychain add-certificates
-          # طلع الـ Team ID من البروفايل
-          PROFILE=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
-          security cms -D -i "$PROFILE" > /tmp/profile.plist
-          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /tmp/profile.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Print TeamIdentifier:0" /tmp/profile.plist)
-          echo "TEAM_ID=$TEAM_ID" >> $CM_ENV
-          echo "Found Team ID: $TEAM_ID"
+          python3 << 'PY'
+          import pathlib, subprocess, plistlib, os
+          profiles = list(pathlib.Path.home().glob("Library/MobileDevice/Provisioning Profiles/*.mobileprovision"))
+          team_id = ""
+          for p in profiles:
+              try:
+                  decoded = subprocess.check_output(["security", "cms", "-D", "-i", str(p)])
+                  pl = plistlib.loads(decoded)
+                  # جرب اكثر من مكان
+                  if "TeamIdentifier" in pl and pl["TeamIdentifier"]:
+                      team_id = pl["TeamIdentifier"][0]
+                      break
+                  if "Entitlements" in pl and "com.apple.developer.team-identifier" in pl["Entitlements"]:
+                      team_id = pl["Entitlements"]["com.apple.developer.team-identifier"]
+                      break
+              except Exception as e:
+                  print(f"skip {p}: {e}")
+          if not team_id:
+              # محاولة اخيرة من اسم البروفايل
+              print("Failed to get Team ID from profile, trying App Store Connect")
+              team_id = os.environ.get("CM_TEAM_ID", "")
+          print(f"TEAM_ID={team_id}")
+          with open(os.environ["CM_ENV"], "a") as f:
+              f.write(f"TEAM_ID={team_id}\n")
+          PY
+          echo "Team ID is: $TEAM_ID"
       - name: Strip capabilities
         script: |
           python3 << 'PY'
