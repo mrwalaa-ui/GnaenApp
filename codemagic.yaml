@@ -10,6 +10,31 @@ workflows:
     scripts:
       - name: Pods
         script: pod install --repo-update
+      - name: Disable Push and Associated Domains
+        script: |
+          echo "Disabling Push & Associated Domains in project..."
+          # 1. امسح المفاتيح من كل ملفات entitlements بس لا تمسح الملف
+          for f in $(find . -name "*.entitlements"); do
+            echo "Cleaning $f"
+            /usr/libexec/PlistBuddy -c "Delete :com.apple.developer.associated-domains" "$f" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Delete :aps-environment" "$f" 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Delete :com.apple.developer.aps-environment" "$f" 2>/dev/null || true
+            cat "$f"
+          done
+          # 2. طفي الـ capabilities من project.pbxproj
+          python3 << 'PY'
+          import pathlib, re
+          pbx = pathlib.Path("جنائن.xcodeproj/project.pbxproj")
+          if pbx.exists():
+              text = pbx.read_text()
+              text = text.replace("com.apple.Push = {\n\t\t\t\tenabled = 1;", "com.apple.Push = {\n\t\t\t\tenabled = 0;")
+              text = text.replace("com.apple.AssociatedDomains = {\n\t\t\t\tenabled = 1;", "com.apple.AssociatedDomains = {\n\t\t\t\tenabled = 0;")
+              # احتياط اذا كان الشكل مختلف
+              text = re.sub(r'com\.apple\.Push.*?enabled\s*=\s*1', 'com.apple.Push = {\n\t\t\t\tenabled = 0', text, flags=re.DOTALL)
+              text = re.sub(r'com\.apple\.AssociatedDomains.*?enabled\s*=\s*1', 'com.apple.AssociatedDomains = {\n\t\t\t\tenabled = 0', text, flags=re.DOTALL)
+              pbx.write_text(text)
+              print("Patched project.pbxproj")
+          PY
       - name: Setup signing
         script: |
           keychain initialize
