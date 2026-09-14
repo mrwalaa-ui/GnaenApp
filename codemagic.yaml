@@ -1,6 +1,6 @@
 workflows:
-  ios-workflow:
-    name: iOS
+  GnaenApp Build:
+    name: GnaenApp Build
     instance_type: mac_mini_m2
     integrations:
       app_store_connect: gnaen
@@ -10,41 +10,22 @@ workflows:
       vars:
         BUNDLE_ID: "com.gnaen.app"
     scripts:
-      - name: Install Pods
+      - name: Pods
         script: pod install --repo-update
-      - name: Create & Use Profiles
+      - name: Setup signing
         script: |
-          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
-          echo "=== Profiles fetched ==="
-          ls -lh ~/Library/MobileDevice/Provisioning\ Profiles/
           keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
           xcode-project use-profiles
       - name: Build IPA
-        script: |
-          WS=$(ls -d *.xcworkspace | head -n 1)
-          SCHEME=$(basename "$WS" .xcworkspace)
-          PROFILE_PATH=$(ls ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision | head -n 1)
-          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
-          TEAM_ID=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" /dev/stdin <<< $(security cms -D -i "$PROFILE_PATH"))
-          echo "Using Profile: $PROFILE_NAME"
-          echo "Team ID: $TEAM_ID"
-          cat > /tmp/ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>app-store</string>
-            <key>teamID</key><string>$TEAM_ID</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>$BUNDLE_ID</key><string>$PROFILE_NAME</string>
-            </dict>
-          </dict>
-          </plist>
-          EOF
-          cat /tmp/ExportOptions.plist
-          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release archive -archivePath /tmp/App.xcarchive -destination generic/platform=iOS DEVELOPMENT_TEAM=$TEAM_ID CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME"
-          xcodebuild -exportArchive -archivePath /tmp/App.xcarchive -exportPath ./build -exportOptionsPlist /tmp/ExportOptions.plist
+        script: xcode-project build-ipa --workspace "جنائن.xcworkspace" --scheme "جنائن"
     artifacts:
-      - build/*.ipa
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        api_key: gnaen
+        submit_to_testflight: true
+        beta_groups:
+          - Beta
