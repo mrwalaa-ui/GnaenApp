@@ -1,65 +1,29 @@
 workflows:
-  ios-final:
-    name: iOS FINAL
+  ios-pwa:
+    name: iOS PWA Build
     max_build_duration: 60
     integrations:
       app_store_connect: gnaen
     environment:
+      vars:
+        XCODE_WORKSPACE: "جنائن.xcworkspace"
+        XCODE_SCHEME: "جنائن"
+        BUNDLE_ID: "com.gnaen.app"
       xcode: 16.2
       cocoapods: default
     scripts:
-      - name: Pods
-        script: pod install --repo-update
-      - name: Fix project - remove all blockers
+      - name: Reset and Pods
         script: |
-          # 1. امسح كل الـ entitlements
-          find . -name "*.entitlements" -exec sh -c 'echo "<?xml version=\"1.0\"?><plist version=\"1.0\"><dict></dict></plist>" > "$1"' _ {} \;
-          
-          # 2. امسح الـ Capabilities من pbxproj
-          python3 << 'PY'
-          import pathlib, re
-          path = pathlib.Path("جنائن.xcodeproj/project.pbxproj")
-          text = path.read_text(encoding='utf-8', errors='ignore')
-          # احذف Associated Domains, Push, كلشي
-          text = re.sub(r'com\.apple\.\w+.*?;', '', text)
-          text = re.sub(r'SystemCapabilities\s*=\s*\{[^}]*\};', 'SystemCapabilities = {};', text, flags=re.DOTALL)
-          text = re.sub(r'CODE_SIGN_ENTITLEMENTS\s*=\s*[^;]+;', '', text)
-          path.write_text(text, encoding='utf-8')
-          print("fixed pbxproj")
-          PY
-          echo "entitlements cleaned"
-      - name: Setup signing
+          git reset --hard
+          pod install --repo-update
+      - name: Set up signing
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files "com.gnaen.app" --type IOS_APP_STORE --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
-          # طلع الـ Team ID
-          TEAM_ID=$(security find-certificate -a -p | openssl x509 -noout -subject 2>/dev/null | grep -o "OU=[A-Z0-9]*" | head -n1 | cut -d= -f2)
-          echo "TEAM_ID=$TEAM_ID"
-          echo "TEAM_ID=$TEAM_ID" >> $CM_ENV
-          xcode-project use-profiles || true
-      - name: Build
+          xcode-project use-profiles
+      - name: Build IPA
         script: |
-          echo "Building with TEAM $TEAM_ID"
-          mkdir -p build/ios/xcarchive
-          xcodebuild -workspace "جنائن.xcworkspace" -scheme "جنائن" \
-            -archivePath build/ios/xcarchive/جنائن.xcarchive \
-            -destination "generic/platform=iOS" \
-            archive \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM=$TEAM_ID \
-            CODE_SIGN_ALLOW_LEGACY_KEYCHAIN=YES \
-            -allowProvisioningUpdates
-      - name: Export
-        script: |
-          cat > /tmp/ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <plist version="1.0"><dict>
-            <key>method</key><string>app-store</string>
-            <key>signingStyle</key><string>automatic</string>
-            <key>teamID</key><string>$TEAM_ID</string>
-          </dict></plist>
-          EOF
-          xcodebuild -exportArchive -archivePath build/ios/xcarchive/جنائن.xcarchive -exportPath build/ios/ipa -exportOptionsPlist /tmp/ExportOptions.plist -allowProvisioningUpdates
+          xcode-project build-ipa --workspace "$XCODE_WORKSPACE" --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
