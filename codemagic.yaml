@@ -1,42 +1,38 @@
 workflows:
-  ios-pwa:
-    name: Gnaen iOS Build
+  gnaen-ios-unsigned:
+    name: Build IPA Without Signing
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Set up project
+      - name: Install Pods
         script: |
-          ls -la
-          # PWABuilder projects sometimes have Arabic names - handle it
-          if [ -f "Podfile" ]; then
-            pod install --repo-update
-          fi
+          pod install --repo-update
       - name: Build IPA without signing
         script: |
-          # غير اسم الـ workspace والـ scheme حسب الموجود عندك
-          WORKSPACE=$(ls *.xcworkspace | head -1)
-          SCHEME=$(echo $WORKSPACE | sed 's/.xcworkspace//')
-          
-          echo "Using workspace: $WORKSPACE"
-          echo "Using scheme: $SCHEME"
-          
-          xcodebuild -workspace "$WORKSPACE" \
-                     -scheme "$SCHEME" \
-                     -configuration Release \
-                     -sdk iphoneos \
-                     -archivePath $CM_BUILD_DIR/Gnaen.xcarchive \
-                     archive \
-                     CODE_SIGNING_ALLOWED=NO \
-                     CODE_SIGNING_REQUIRED=NO
-          
-          # Create IPA manually for testing
-          mkdir -p $CM_BUILD_DIR/ipa/Payload
-          cp -r $CM_BUILD_DIR/Gnaen.xcarchive/Products/Applications/*.app $CM_BUILD_DIR/ipa/Payload/ || true
-          cd $CM_BUILD_DIR/ipa
-          zip -r Gnaen.ipa Payload
+          WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "Workspace: $WORKSPACE"
+          echo "Scheme: $SCHEME"
+
+          # 1. Archive
+          xcodebuild archive \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath build/Gnaen.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            -sdk iphoneos
+
+          # 2. Convert .app to .ipa
+          mkdir -p build/ipa/Payload
+          cp -r build/Gnaen.xcarchive/Products/Applications/*.app build/ipa/Payload/
+          cd build/ipa
+          zip -r Gnaen-unsigned.ipa Payload
     artifacts:
-      - $CM_BUILD_DIR/ipa/*.ipa
-      - $CM_BUILD_DIR/*.xcarchive
+      - build/ipa/*.ipa
+      - build/Gnaen.xcarchive
