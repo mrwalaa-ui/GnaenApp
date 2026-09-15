@@ -1,38 +1,33 @@
 workflows:
-  gnaen-ios-unsigned:
-    name: Build IPA Without Signing
+  ios-app-store:
+    name: iOS App Store Build
     instance_type: mac_mini_m2
     max_build_duration: 60
+    integrations:
+      app_store_connect: GnaenApiKey
     environment:
       xcode: latest
       cocoapods: default
+      groups:
+        - appstore_credentials
     scripts:
-      - name: Install Pods
+      - name: Install CocoaPods
         script: |
           pod install --repo-update
-      - name: Build IPA without signing
+      - name: Setup signing
         script: |
-          WORKSPACE=$(ls -d *.xcworkspace | head -n 1)
-          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
-          echo "Workspace: $WORKSPACE"
-          echo "Scheme: $SCHEME"
-
-          # 1. Archive
-          xcodebuild archive \
-            -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -archivePath build/Gnaen.xcarchive \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            -sdk iphoneos
-
-          # 2. Convert .app to .ipa
-          mkdir -p build/ipa/Payload
-          cp -r build/Gnaen.xcarchive/Products/Applications/*.app build/ipa/Payload/
-          cd build/ipa
-          zip -r Gnaen-unsigned.ipa Payload
+          keychain initialize
+          app-store-connect fetch-signing-files "$(xcode-project detect-bundle-id)" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa --workspace "$(ls *.xcworkspace | head -n 1)" --scheme "$(xcode-project detect-bundle-id | rev | cut -d. -f1 | rev)"
     artifacts:
-      - build/ipa/*.ipa
-      - build/Gnaen.xcarchive
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
