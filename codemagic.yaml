@@ -16,23 +16,15 @@ workflows:
         script: |
           git reset --hard
           pod install --repo-update
-          - name: Force new profile
-  script: |
-    rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision
-    rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*.p12
-    echo "old profiles deleted"
-            - name: Set up signing
+      - name: Force new profile
+        script: |
+          rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*
+          echo "old profiles deleted"
+      - name: Set up signing
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files "com.gnaen.app" --type IOS_APP_STORE --create --platform IOS
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
-          echo "=== Profiles fetched ==="
-          ls ~/Library/MobileDevice/Provisioning\ Profiles/
-          # اطبع شنو بيه البروفايل من مميزات
-          for f in ~/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision; do
-            echo "Checking $f"
-            security cms -D -i "$f" | grep -a -A2 "com.apple.developer.associated-domains" | head
-          done
           xcode-project use-profiles
       - name: Build IPA
         script: |
