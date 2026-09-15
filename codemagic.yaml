@@ -16,10 +16,27 @@ workflows:
         script: |
           git reset --hard
           pod install --repo-update
+      - name: Remove Push capability safely
+        script: |
+          python3 << 'PY'
+          import re, pathlib
+          pbx = pathlib.Path("جنائن.xcodeproj/project.pbxproj")
+          text = pbx.read_text(encoding='utf-8')
+          # احذف بس Push
+          text = re.sub(r'\s*com\.apple\.Push\s*=\s*\{[^}]+\};', '', text)
+          pbx.write_text(text, encoding='utf-8')
+          print("Push removed from pbxproj")
+
+          # احذف aps-environment من entitlements
+          for f in pathlib.Path(".").rglob("*.entitlements"):
+              t = f.read_text(encoding='utf-8')
+              t = re.sub(r'\s*<key>aps-environment</key>\s*<string>[^<]+</string>', '', t)
+              f.write_text(t, encoding='utf-8')
+              print(f"cleaned {f}")
+          PY
       - name: Force new profile
         script: |
           rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*
-          echo "old profiles deleted"
       - name: Set up signing
         script: |
           keychain initialize
