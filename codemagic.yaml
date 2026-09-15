@@ -16,24 +16,26 @@ workflows:
         script: |
           git reset --hard
           pod install --repo-update
-      - name: Remove Push capability safely
+      - name: Nuke capabilities
         script: |
           python3 << 'PY'
-          import re, pathlib
+          import pathlib, re
           pbx = pathlib.Path("جنائن.xcodeproj/project.pbxproj")
-          text = pbx.read_text(encoding='utf-8')
-          # احذف بس Push
-          text = re.sub(r'\s*com\.apple\.Push\s*=\s*\{[^}]+\};', '', text)
-          pbx.write_text(text, encoding='utf-8')
-          print("Push removed from pbxproj")
-
-          # احذف aps-environment من entitlements
+          s = pbx.read_text('utf-8')
+          # امسح كل SystemCapabilities بلوك كامل
+          s = re.sub(r'SystemCapabilities\s*=\s*\{[^}]*\n\s*\};', 'SystemCapabilities = {\n};', s, flags=re.DOTALL)
+          # امسح مرجع الـ entitlements
+          s = re.sub(r'CODE_SIGN_ENTITLEMENTS\s*=\s*[^;]+;', 'CODE_SIGN_ENTITLEMENTS = "";', s)
+          pbx.write_text(s,'utf-8')
+          print("pbx cleaned")
           for f in pathlib.Path(".").rglob("*.entitlements"):
-              t = f.read_text(encoding='utf-8')
-              t = re.sub(r'\s*<key>aps-environment</key>\s*<string>[^<]+</string>', '', t)
-              f.write_text(t, encoding='utf-8')
-              print(f"cleaned {f}")
+              f.unlink()
+              print(f"deleted {f}")
+          # انشئ entitlements فاضي واربطه
+          pathlib.Path("جنائن/جنائن.entitlements").write_text('<?xml version="1.0"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict></dict></plist>')
           PY
+          # تأكيد
+          cat جنائن.xcodeproj/project.pbxproj | grep -A2 SystemCapabilities | head -20
       - name: Force new profile
         script: |
           rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*
