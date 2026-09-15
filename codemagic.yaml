@@ -2,7 +2,6 @@ workflows:
   ios-release:
     name: Gnaen iOS Release
     instance_type: mac_mini_m2
-    max_build_duration: 60
     environment:
       xcode: latest
       cocoapods: default
@@ -11,13 +10,21 @@ workflows:
         APP_STORE_CONNECT_KEY_IDENTIFIER: "6VMPRR79FM"
         APP_STORE_CONNECT_PRIVATE_KEY: |
           -----BEGIN PRIVATE KEY-----
-          حط محتوى ملف AuthKey_6VMPRR79FM.p8 كامل هنا
+          حط محتوى ملف AuthKey_6VMPRR79FM.p8 هنا
           -----END PRIVATE KEY-----
         BUNDLE_ID: "com.gnaen.app"
     scripts:
       - name: Install pods
         script: |
           pod install --repo-update
+      - name: Fix Arabic name
+        script: |
+          ls -la
+          if [ -d "جنائن.xcworkspace" ]; then
+            mv "جنائن.xcworkspace" "App.xcworkspace"
+            echo "Renamed workspace to App.xcworkspace"
+          fi
+          ls *.xcworkspace
       - name: Setup signing
         script: |
           keychain initialize
@@ -26,6 +33,6 @@ workflows:
           xcode-project use-profiles
       - name: Build IPA
         script: |
-          xcode-project build-ipa --workspace *.xcworkspace --scheme App
+          xcode-project build-ipa --workspace App.xcworkspace --scheme App
     artifacts:
       - build/ios/ipa/*.ipa
