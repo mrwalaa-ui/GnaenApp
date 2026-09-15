@@ -15,19 +15,21 @@ workflows:
         BUNDLE_ID: "com.gnaen.app"
     scripts:
       - name: Install pods
+        script: pod install --repo-update
+      - name: Fix Arabic name and Capabilities
         script: |
-          pod install --repo-update
-      - name: Fix and List
-        script: |
-          ls -la
           if [ -d "جنائن.xcworkspace" ]; then mv "جنائن.xcworkspace" "App.xcworkspace"; fi
-          echo "--- WORKSPACES ---"
-          ls *.xcworkspace
-          echo "--- SCHEMES ---"
-          xcodebuild -workspace App.xcworkspace -list || true
-          echo "--- PROJECTS ---"
-          ls *.xcodeproj
-          xcodebuild -project *.xcodeproj -list || true
+          echo "Removing Push & Associated Domains entitlements..."
+          find . -name "*.entitlements" -type f | while read f; do
+            echo "Fixing $f"
+            plutil -remove com.apple.developer.associated-domains "$f" 2>/dev/null || true
+            plutil -remove aps-environment "$f" 2>/dev/null || true
+            cat "$f"
+          done
+          # احذف الـ capability من المشروع
+          sed -i '' '/com.apple.SafariKeychain/d' جنائن.xcodeproj/project.pbxproj || true
+          sed -i '' '/com.apple.Push/d' جنائن.xcodeproj/project.pbxproj || true
+          sed -i '' '/com.apple.AssociatedDomains/d' جنائن.xcodeproj/project.pbxproj || true
       - name: Setup signing
         script: |
           keychain initialize
@@ -36,10 +38,6 @@ workflows:
           xcode-project use-profiles
       - name: Build IPA
         script: |
-          # جرب كل الـ schemes الموجودة
-          xcode-project build-ipa --workspace App.xcworkspace --scheme App || \
-          xcode-project build-ipa --workspace App.xcworkspace --scheme جنائن || \
-          xcode-project build-ipa --workspace App.xcworkspace --scheme Gnaen
+          xcode-project build-ipa --workspace App.xcworkspace --scheme جنائن
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
