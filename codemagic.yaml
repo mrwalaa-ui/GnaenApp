@@ -16,20 +16,31 @@ workflows:
     scripts:
       - name: Install pods
         script: pod install --repo-update
-      - name: Fix Arabic name and Capabilities
+      - name: Fix project completely
         script: |
           if [ -d "جنائن.xcworkspace" ]; then mv "جنائن.xcworkspace" "App.xcworkspace"; fi
-          echo "Removing Push & Associated Domains entitlements..."
-          find . -name "*.entitlements" -type f | while read f; do
-            echo "Fixing $f"
-            plutil -remove com.apple.developer.associated-domains "$f" 2>/dev/null || true
-            plutil -remove aps-environment "$f" 2>/dev/null || true
-            cat "$f"
-          done
-          # احذف الـ capability من المشروع
-          sed -i '' '/com.apple.SafariKeychain/d' جنائن.xcodeproj/project.pbxproj || true
-          sed -i '' '/com.apple.Push/d' جنائن.xcodeproj/project.pbxproj || true
-          sed -i '' '/com.apple.AssociatedDomains/d' جنائن.xcodeproj/project.pbxproj || true
+          python3 << 'PY'
+          import os, glob
+          # 1. امسح كل ملفات entitlements
+          for ent_file in glob.glob("**/*.entitlements", recursive=True):
+              print(f"Clearing {ent_file}")
+              with open(ent_file, 'w') as f:
+                  f.write('''<?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict></dict></plist>''')
+          # 2. امسح الـ capabilities من project.pbxproj
+          pbx_path = "جنائن.xcodeproj/project.pbxproj"
+          if os.path.exists(pbx_path):
+              with open(pbx_path, 'r', encoding='utf-8') as f:
+                  content = f.read()
+              # احذف كل شي يخص Push و Associated Domains
+              for key in ["com.apple.Push", "com.apple.Developer.AssociatedDomains", "com.apple.SafariKeychain", "com.apple.Developer.Push"]:
+                  content = content.replace(key, "")
+              content = content.replace("SystemCapabilities = {", "SystemCapabilities = { /* cleaned */")
+              with open(pbx_path, 'w', encoding='utf-8') as f:
+                  f.write(content)
+              print("Cleaned pbxproj")
+          PY
       - name: Setup signing
         script: |
           keychain initialize
