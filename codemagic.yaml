@@ -1,37 +1,42 @@
 workflows:
-  ios-workflow:
-    name: Gnaen iOS IPA
+  ios-pwa:
+    name: Gnaen iOS Build
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
-      vars:
-        XCODE_WORKSPACE: "ios/GnaenApp.xcworkspace"
-        XCODE_SCHEME: "GnaenApp"
-        BUNDLE_ID: "com.gnaen.app"
-      node: 20.18.1
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Install Node dependencies
+      - name: Set up project
         script: |
-          npm install
-      - name: Expo Prebuild
+          ls -la
+          # PWABuilder projects sometimes have Arabic names - handle it
+          if [ -f "Podfile" ]; then
+            pod install --repo-update
+          fi
+      - name: Build IPA without signing
         script: |
-          npx expo prebuild --clean --platform ios
-      - name: Install Pods
-        script: |
-          cd ios && pod install --repo-update && cd ..
-      - name: Build IPA
-        script: |
-          xcodebuild -workspace "$XCODE_WORKSPACE" \
-                     -scheme "$XCODE_SCHEME" \
-                     -config Release \
-                     -archivePath $CM_BUILD_DIR/GnaenApp.xcarchive \
-                     archive
-          xcodebuild -exportArchive \
-                     -archivePath $CM_BUILD_DIR/GnaenApp.xcarchive \
-                     -exportPath $CM_BUILD_DIR/build \
-                     -exportOptionsPlist ios/ExportOptions.plist
+          # غير اسم الـ workspace والـ scheme حسب الموجود عندك
+          WORKSPACE=$(ls *.xcworkspace | head -1)
+          SCHEME=$(echo $WORKSPACE | sed 's/.xcworkspace//')
+          
+          echo "Using workspace: $WORKSPACE"
+          echo "Using scheme: $SCHEME"
+          
+          xcodebuild -workspace "$WORKSPACE" \
+                     -scheme "$SCHEME" \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     -archivePath $CM_BUILD_DIR/Gnaen.xcarchive \
+                     archive \
+                     CODE_SIGNING_ALLOWED=NO \
+                     CODE_SIGNING_REQUIRED=NO
+          
+          # Create IPA manually for testing
+          mkdir -p $CM_BUILD_DIR/ipa/Payload
+          cp -r $CM_BUILD_DIR/Gnaen.xcarchive/Products/Applications/*.app $CM_BUILD_DIR/ipa/Payload/ || true
+          cd $CM_BUILD_DIR/ipa
+          zip -r Gnaen.ipa Payload
     artifacts:
-      - build/*.ipa
-      - /tmp/xcodebuild_logs/*.log
+      - $CM_BUILD_DIR/ipa/*.ipa
+      - $CM_BUILD_DIR/*.xcarchive
