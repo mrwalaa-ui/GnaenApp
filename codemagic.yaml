@@ -1,9 +1,6 @@
 workflows:
   ios-pwa:
     name: iOS PWA Build
-    max_build_duration: 60
-    integrations:
-      app_store_connect: gnaen
     environment:
       vars:
         XCODE_WORKSPACE: "جنائن.xcworkspace"
@@ -12,36 +9,16 @@ workflows:
       xcode: 16.2
       cocoapods: default
     scripts:
-      - name: Reset and Pods
+      - name: Clean & Pods
         script: |
           git reset --hard
           pod install --repo-update
-      - name: Disable Push and Assoc Domains
-        script: |
-          python3 << 'PY'
-          import re, pathlib
-          p = pathlib.Path("جنائن.xcodeproj/project.pbxproj")
-          s = p.read_text(encoding='utf-8')
-          # طفي الـ Push
-          s = re.sub(r'com\.apple\.Push\s*=\s*\{[^}]+\}', 'com.apple.Push = {\n\t\t\t\tenabled = 0;\n\t\t\t}', s, flags=re.DOTALL)
-          # طفي الـ Associated Domains
-          s = re.sub(r'com\.apple\.Developer\.Associated-Domains\s*=\s*\{[^}]+\}', 'com.apple.Developer.Associated-Domains = {\n\t\t\t\tenabled = 0;\n\t\t\t}', s, flags=re.DOTALL)
-          s = re.sub(r'com\.apple\.AssociatedDomains\s*=\s*\{[^}]+\}', 'com.apple.AssociatedDomains = {\n\t\t\t\tenabled = 0;\n\t\t\t}', s, flags=re.DOTALL)
-          p.write_text(s, encoding='utf-8')
-          print("disabled")
-          print(re.findall(r'com\.apple\.[^=]+=\s*\{[^}]+\}', s)[:5])
-          PY
-      - name: Signing
+      - name: Signing with Push
         script: |
           rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*
           keychain initialize
           app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
           xcode-project use-profiles
-      - name: Build
-        script: |
-          set -o pipefail
-          xcodebuild -workspace "$XCODE_WORKSPACE" -scheme "$XCODE_SCHEME" -archivePath /tmp/app.xcarchive archive CODE_SIGN_STYLE=Manual COMPILER_INDEX_STORE_ENABLE=NO 2>&1 | tee /tmp/build.log | tail -n 100
-          cat /tmp/build.log | grep -A5 "error:" | tail -n 50
     artifacts:
       - build/ios/ipa/*.ipa
