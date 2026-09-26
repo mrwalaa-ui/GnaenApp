@@ -2,21 +2,46 @@ workflows:
   ios-release:
     name: iOS Release
     instance_type: mac_mini_m2
+    max_build_duration: 60
     integrations:
       app_store_connect: gnaen
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.gnaen.app
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
     scripts:
-      - name: Build
+      - name: Find project & get dependencies
         script: |
+          echo "=== Where is pubspec.yaml ==="
+          find $CM_BUILD_DIR -name "pubspec.yaml" | head -20
+          PROJECT_DIR=$(find $CM_BUILD_DIR -name "pubspec.yaml" -print -quit | xargs dirname)
+          echo "PROJECT_DIR=$PROJECT_DIR"
+          echo $PROJECT_DIR > /tmp/project_path.txt
+          cd $PROJECT_DIR
           flutter pub get
-          cd ios && pod install --repo-update && cd ..
-          flutter build ipa --release --export-method app-store
+          cd ios
+          pod install --repo-update
+      - name: Build IPA
+        script: |
+          PROJECT_DIR=$(cat /tmp/project_path.txt)
+          cd $PROJECT_DIR
+          flutter build ipa --release --export-method app-store --no-tree-shake-icons
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/ios/ipa/*.dSYM.zip
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+        beta_groups:
+          - Testers
