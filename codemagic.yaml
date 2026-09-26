@@ -1,6 +1,6 @@
 workflows:
   ios-release:
-    name: iOS
+    name: iOS Release
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
@@ -14,17 +14,17 @@ workflows:
     scripts:
       - name: Find and Build
         script: |
-          ls -la
-          # يلقى وين pubspec.yaml
+          set -x
           PUB=$(find . -name "pubspec.yaml" | head -1)
-          echo "Found: $PUB"
           DIR=$(dirname "$PUB")
+          echo "Project dir: $DIR"
           cd "$DIR"
-          echo "Project root: $DIR"
+          pwd
           flutter pub get
           cd ios
           pod install --repo-update
           cd ..
+          pwd
           keychain initialize
           app-store-connect fetch-signing-files $BUNDLE_ID --type IOS_APP_STORE --platform IOS --create
           keychain add-certificates
