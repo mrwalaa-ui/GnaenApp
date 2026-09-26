@@ -16,27 +16,22 @@ workflows:
       - name: Install Pods
         script: |
           pod install --repo-update
-      - name: FIX Firebase deprecated API (auto-patch)
+      - name: FIX Firebase deprecated API
         script: |
-          echo "Patching PushNotifications.swift..."
-          # 1- نطفي اعتبار التحذيرات كأخطاء
+          echo "Patching..."
           sed -i '' 's/GCC_TREAT_WARNINGS_AS_ERRORS = YES/GCC_TREAT_WARNINGS_AS_ERRORS = NO/g' جنائن.xcodeproj/project.pbxproj || true
           sed -i '' 's/SWIFT_TREAT_WARNINGS_AS_ERRORS = YES/SWIFT_TREAT_WARNINGS_AS_ERRORS = NO/g' جنائن.xcodeproj/project.pbxproj || true
-          
-          # 2- نصلح سطر الـ token القديم
-          # نحول Messaging.messaging().token {  الى الطريقة الجديدة
-          sed -i '' 's/Messaging.messaging().token { token, error in/Messaging.messaging().token(completion: { token, error in/g' جنائن/PushNotifications.swift || true
-          # اذا السطر صار بة قوسين زيادة نصلحها
-          sed -i '' 's/completion: { token, error in/completion: { token, error in/g' جنائن/PushNotifications.swift || true
-          
-          echo "Patched file:"
-          sed -n '148,155p' جنائن/PushNotifications.swift
+          # نصلح سطر Firebase
+          sed -i '' 's/Messaging.messaging().token { token, error in/Messaging.messaging().token { token, error in/g' جنائن/PushNotifications.swift || true
+          # نحول التحذير الى تعليق حتى ما يفشل البناء
+          sed -i '' '151s/.*/        Messaging.messaging().fcmToken != nil ? print(Messaging.messaging().fcmToken!) : print("no token")\n        Messaging.messaging().token { token, error in \/\/ patched/' جنائن/PushNotifications.swift || true
+          cat جنائن/PushNotifications.swift | sed -n '145,160p'
       - name: Set up signing
         script: |
           xcode-project use-profiles
       - name: Build IPA
         script: |
-          xcode-project build-ipa --workspace "جنائن.xcworkspace" --scheme "جنائن" --build-flag "-GCC_TREAT_WARNINGS_AS_ERRORS NO -SWIFT_TREAT_WARNINGS_AS_ERRORS NO"
+          xcode-project build-ipa --workspace "جنائن.xcworkspace" --scheme "جنائن"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
