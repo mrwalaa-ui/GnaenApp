@@ -1,6 +1,6 @@
 workflows:
   ios-release:
-    name: ios-final-fix
+    name: iOS Release - Gnaen
     instance_type: mac_mini_m2
     integrations:
       app_store_connect: gnaen
@@ -12,38 +12,20 @@ workflows:
         bundle_identifier: com.gnaen.app
     scripts:
       - name: Install Pods
-        script: pod install --repo-update
-
-      - name: Fix Swift file without Mac
         script: |
-          python3 << 'PY'
-          import pathlib, re
-          p = pathlib.Path("جنائن/PushNotifications.swift")
-          text = p.read_text()
-          # نبدل السطر القديم
-          text = text.replace("Messaging.messaging().token { token, error in", "if let token = Messaging.messaging().fcmToken {")
-          # نحذف الـ error المتعلق بيه اذا بقى
-          # ونطفي Warnings as Errors من المشروع
-          p.write_text(text)
-          print("Fixed PushNotifications.swift line 151")
-          print(text[3000:4000])
-
-          proj = pathlib.Path("جنائن.xcodeproj/project.pbxproj")
-          t = proj.read_text()
-          t = t.replace("GCC_TREAT_WARNINGS_AS_ERRORS = YES", "GCC_TREAT_WARNINGS_AS_ERRORS = NO")
-          t = t.replace("SWIFT_TREAT_WARNINGS_AS_ERRORS = YES", "SWIFT_TREAT_WARNINGS_AS_ERRORS = NO")
-          proj.write_text(t)
-          print("Disabled warnings as errors")
-          PY
+          pod install --repo-update
 
       - name: Setup signing
-        script: xcode-project use-profiles
+        script: |
+          xcode-project use-profiles
 
       - name: Build IPA
-        script: xcode-project build-ipa --workspace "جنائن.xcworkspace" --scheme "جنائن"
+        script: |
+          xcode-project build-ipa --workspace "جنائن.xcworkspace" --scheme "جنائن"
 
     artifacts:
       - build/ios/ipa/*.ipa
+
     publishing:
       app_store_connect:
         auth: integration
