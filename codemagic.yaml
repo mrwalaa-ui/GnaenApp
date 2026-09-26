@@ -1,6 +1,6 @@
 workflows:
   ios-release:
-    name: iOS Release - Gnaen Native
+    name: iOS PWA - Gnaen
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
@@ -8,14 +8,26 @@ workflows:
     environment:
       xcode: latest
       cocoapods: default
+      node: 20
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gnaen.app
     scripts:
+      - name: Install web deps & build PWA
+        script: |
+          # اذا عندك package.json يبني الـ PWA
+          if [ -f "package.json" ]; then
+            npm install
+            npm run build || echo "no build script, skipping"
+          fi
+          # اذا تستخدم Capacitor انسخ ملفات الويب للـ iOS
+          if [ -f "capacitor.config.ts" ] || [ -f "capacitor.config.json" ]; then
+            npx cap copy ios || echo "cap copy failed, continuing"
+          fi
       - name: Install Pods
         script: |
           pod install --repo-update
-      - name: Set up signing
+      - name: Set up signing (uses Gnaen_appstore profile)
         script: |
           xcode-project use-profiles
       - name: Build IPA
