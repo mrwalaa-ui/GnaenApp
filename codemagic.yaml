@@ -1,8 +1,7 @@
 workflows:
   ios-release:
-    name: iOS Release - GNAEN
+    name: iOS Release
     instance_type: mac_mini_m2
-    max_build_duration: 60
     integrations:
       app_store_connect: gnaen
     environment:
@@ -13,27 +12,16 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.gnaen.app
     scripts:
-      - name: Find project & install deps
+      - name: Build IPA
         script: |
-          # يدور وين الـ pubspec.yaml (يحل مشكلة No pubspec.yaml)
           PROJECT_DIR=$(find $CM_BUILD_DIR -name "pubspec.yaml" -print -quit | xargs dirname)
-          echo "Project found at: $PROJECT_DIR"
-          echo $PROJECT_DIR > /tmp/project_path.txt
           cd $PROJECT_DIR
           flutter pub get
-          cd ios
-          pod install --repo-update
-      - name: Build IPA for App Store
-        script: |
-          PROJECT_DIR=$(cat /tmp/project_path.txt)
-          cd $PROJECT_DIR
+          cd ios && pod install --repo-update && cd ..
           flutter build ipa --release --export-method app-store
     artifacts:
       - build/ios/ipa/*.ipa
-      - build/ios/ipa/*.dSYM.zip
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        beta_groups:
-          - Testers
