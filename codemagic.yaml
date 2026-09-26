@@ -1,6 +1,6 @@
 workflows:
   ios-release:
-    name: iOS Release
+    name: iOS
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
@@ -11,30 +11,17 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Find files and Install Pods
+      - name: Build
         script: |
-          echo "--- searching ios folder ---"
-          ls -la ios/ | grep -E "xcworkspace|xcodeproj"
-          # يلقى اسم الـ workspace الحقيقي سواء عربي او انجليزي
-          WORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" -type d | head -1)
-          echo "Found workspace: $WORKSPACE"
-          echo "WORKSPACE=$WORKSPACE" >> $CM_ENV
-          
           cd ios
           pod install --repo-update
           cd ..
-      - name: Fetch signing files
-        script: |
           keychain initialize
-          rm -rf ~/Library/MobileDevice/Provisioning\ Profiles/*
           app-store-connect fetch-signing-files $BUNDLE_ID --type IOS_APP_STORE --create
           keychain add-certificates
           xcode-project use-profiles
-      - name: Build IPA
-        script: |
-          echo "Building workspace: $WORKSPACE"
-          # يبني بدون ما نكتب الاسم العربي، يستخدم المتغير
-          xcode-project build-ipa --workspace "$WORKSPACE" --scheme "جنائن" --config Release
+          # يبني تلقائي بدون ما نكتب اسم عربي
+          xcode-project build-ipa --config Release
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
