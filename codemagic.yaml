@@ -1,6 +1,6 @@
 workflows:
   ios-release:
-    name: iOS Release - Gnaen
+    name: ios-release
     instance_type: mac_mini_m2
     integrations:
       app_store_connect: gnaen
@@ -25,6 +25,7 @@ workflows:
 
     artifacts:
       - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
 
     publishing:
       app_store_connect:
