@@ -11,23 +11,18 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Install Pods
+      - name: Find files and Install Pods
         script: |
+          echo "--- searching ios folder ---"
+          ls -la ios/ | grep -E "xcworkspace|xcodeproj"
+          # يلقى اسم الـ workspace الحقيقي سواء عربي او انجليزي
+          WORKSPACE=$(find ios -maxdepth 1 -name "*.xcworkspace" -type d | head -1)
+          echo "Found workspace: $WORKSPACE"
+          echo "WORKSPACE=$WORKSPACE" >> $CM_ENV
+          
           cd ios
           pod install --repo-update
           cd ..
-      - name: Remove Push and Domains to fix profile mismatch
-        script: |
-          # هذا يحذف الميزة اللي تسبب الخطأ مؤقتاً عشان البناء يعدي
-          find ios -name "*.entitlements" -type f -delete || true
-          # احذفها من project.pbxproj
-          sed -i '' '/com.apple.developer.associated-domains/d' ios/Runner.xcodeproj/project.pbxproj || true
-          sed -i '' '/com.apple.developer.push/d' ios/Runner.xcodeproj/project.pbxproj || true
-          sed -i '' '/AssociatedDomains/d' ios/Runner.xcodeproj/project.pbxproj || true
-          sed -i '' '/PushNotifications/d' ios/Runner.xcodeproj/project.pbxproj || true
-          sed -i '' '/جنائن.xcodeproj/project.pbxproj' ios/Runner.xcodeproj/project.pbxproj || true
-          find ios -name "project.pbxproj" -exec sed -i '' '/com.apple.developer.associated-domains/d' {} \; || true
-          find ios -name "project.pbxproj" -exec sed -i '' '/APS/d' {} \; || true
       - name: Fetch signing files
         script: |
           keychain initialize
@@ -37,10 +32,11 @@ workflows:
           xcode-project use-profiles
       - name: Build IPA
         script: |
-          xcode-project build-ipa --workspace ios/Runner.xcworkspace --scheme Runner --config Release
+          echo "Building workspace: $WORKSPACE"
+          # يبني بدون ما نكتب الاسم العربي، يستخدم المتغير
+          xcode-project build-ipa --workspace "$WORKSPACE" --scheme "جنائن" --config Release
     artifacts:
       - build/ios/ipa/*.ipa
-      - ios/build/*.ipa
     publishing:
       app_store_connect:
         auth: integration
