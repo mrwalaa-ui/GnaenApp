@@ -12,20 +12,20 @@ workflows:
       vars:
         BUNDLE_ID: "com.gnaen.app"
     scripts:
-      - name: Find and Build
+      - name: Build
         script: |
-          set -x
-          PUB=$(find . -name "pubspec.yaml" | head -1)
+          cd $CM_BUILD_DIR
+          PUB=$(find . -maxdepth 3 -name "pubspec.yaml" | grep -v ios | head -1)
           DIR=$(dirname "$PUB")
-          echo "Project dir: $DIR"
-          cd "$DIR"
-          pwd
+          echo "Project: $DIR"
+          cd $CM_BUILD_DIR/$DIR
           flutter pub get
           cd ios
           pod install --repo-update
-          cd ..
-          pwd
+          cd $CM_BUILD_DIR/$DIR
           keychain initialize
+          # يسوي شهادة جديدة اذا القديمة ما بيها private key
+          app-store-connect certificates create --type IOS_DISTRIBUTION --save || true
           app-store-connect fetch-signing-files $BUNDLE_ID --type IOS_APP_STORE --platform IOS --create
           keychain add-certificates
           xcode-project use-profiles --project ios/Runner.xcodeproj
