@@ -1,46 +1,29 @@
 workflows:
   ios-release:
-    name: iOS Release
+    name: iOS Release - Gnaen Native
     instance_type: mac_mini_m2
     max_build_duration: 60
     integrations:
       app_store_connect: gnaen
     environment:
-      flutter: stable
       xcode: latest
       cocoapods: default
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.gnaen.app
     scripts:
-      - name: Build IPA (auto-find project)
+      - name: Install Pods
         script: |
-          set -e
-          set -x
-          echo "CM_BUILD_DIR = $CM_BUILD_DIR"
-          ls -la $CM_BUILD_DIR
-          # دور وين pubspec.yaml
-          PUB=$(find $CM_BUILD_DIR -name "pubspec.yaml" -type f | head -1)
-          echo "Found pubspec at: $PUB"
-          if [ -z "$PUB" ]; then
-            echo "Cannot find pubspec.yaml!"
-            find $CM_BUILD_DIR -maxdepth 5 -type f | head -100
-            exit 1
-          fi
-          PROJ=$(dirname "$PUB")
-          echo "Project root is: $PROJ"
-          cd "$PROJ"
-          pwd
-          flutter pub get
-          echo "--- pod install ---"
-          cd ios
           pod install --repo-update
-          cd ..
-          echo "--- building ipa ---"
-          flutter build ipa --release --export-method app-store
+      - name: Set up signing
+        script: |
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa --workspace "جنائن.xcworkspace" --scheme "جنائن"
     artifacts:
-      - "**/build/ios/ipa/*.ipa"
-      - "**/build/ios/ipa/*.dSYM.zip"
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
